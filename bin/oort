@@ -1,3 +1,93 @@
 #! /usr/bin/env node
 
-console.log('lol cloud');
+var program = require('commander');
+var fs = require('fs');
+var path = require('path');
+var spawn = require('child_process').spawn;
+var util = require('util');
+
+program
+  .version('0.0.0')
+  .option('init', '[server] initialize!')
+  .option('launch', '[client] launch that shizzzzz')
+  .parse(process.argv);
+
+if (program.init) {
+  var home = process.env['HOME'];
+  var config = JSON.stringify({ directory: process.cwd() });
+  fs.writeFileSync(path.join(home, '.oortserver'), config);
+  fs.mkdirSync('repositories');
+}
+
+function getConfig(root) {
+  if ('/' === root) return false;
+  root = root || __dirname;
+
+  var configPath = path.join(root, '.oort')
+  if (path.existsSync(configPath)) {
+    var config;
+    try {
+      config = JSON.parse(fs.readFileSync(configPath));
+    } catch (e) {
+      console.log('could not read config');
+      throw e;
+    }
+    return config;
+  }
+
+  return getConfig(path.resolve(root, '..'));
+}
+
+function createBareRepository(name, callback) {
+  var git = spawn('git', ['clone', '--bare', '.git', name]);
+  util.pump(git.stdout, process.stdout);
+  util.pump(git.stderr, process.stderr);
+  git.on('exit', function (code) {
+    if (code !== 0) throw new Error('something went wrong with git');
+    callback();
+  });
+}
+
+function getRemoteConfig(remote, callback) {
+  var sshData = '';
+  var ssh = spawn('ssh', [remote, 'cat .oortserver']);
+  ssh.stdout.on('data', function (data) { sshData += data });
+  util.pump(ssh.stderr, process.stderr);
+  
+  ssh.on('exit', function (code) {
+    if (code !== 0) throw new Error('something went wrong with ssh');
+    callback(JSON.parse(sshData));
+  })
+}
+
+function copyBareRepository(remote, repoDir, remoteDir, callback) {
+  // #TODO: make destination doesn't already exist
+  
+  var scp = spawn('scp', ['-r', repoDir, remote + ':' + path.join(remoteDir, 'oort.git')]);
+  util.pump(scp.stdout, process.stdout);
+  util.pump(scp.stderr, process.stderr);
+
+  scp.on('exit', function (code) {  
+    if (code !== 0) throw new Error('something has gone wrong with the scp');
+    callback();
+  });
+}
+
+function initializeClient() {
+  var config = getConfig();
+  var remote = config.user + '@' + config.server;
+  var bareRepo = 'oort-bare-repository';
+  
+  createBareRepository(bareRepo, function () {
+    getRemoteConfig(remote, function (remoteConfig) { 
+      var remoteDir = path.join(remoteConfig.directory, 'repositories');
+      copyBareRepository(remote, bareRepo, remoteDir, function () {
+        console.log('things are looking good');
+      });
+    });
+  });
+}
+
+if (program.launch) { 
+ initializeClient();
+}
