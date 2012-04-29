@@ -5,6 +5,7 @@ var fs = require('fs');
 var path = require('path');
 var spawn = require('child_process').spawn;
 var util = require('util');
+var colors = require('colors');
 
 program
   .version('0.0.0')
@@ -16,7 +17,7 @@ if (program.init) {
   var home = process.env['HOME'];
   var config = JSON.stringify({ directory: process.cwd() });
   fs.writeFileSync(path.join(home, '.oortserver'), config);
-  fs.mkdirSync('repositories');
+  fs.mkdirSync('.repos');
 }
 
 function getConfig(root) {
@@ -60,15 +61,50 @@ function getRemoteConfig(remote, callback) {
   })
 }
 
-function copyBareRepository(remote, repoDir, remoteDir, callback) {
+function copyBareRepository(remote, bareRepoDir, remoteDir, callback) {
   // #TODO: make destination doesn't already exist
   
-  var scp = spawn('scp', ['-r', repoDir, remote + ':' + path.join(remoteDir, 'oort.git')]);
-  util.pump(scp.stdout, process.stdout);
-  util.pump(scp.stderr, process.stderr);
+  function cleanup(callback) {
+    var rmrf = spawn('rm', ['-rf', bareRepoDir])
+    util.pump(rmrf.stdout, process.stdout);
+    util.pump(rmrf.stderr, process.stderr);
+    
+    rmrf.on('exit', function (code) {
+      if (code !== 0) throw new Error('something has gone wrong with the rm -rf of the bare repo');
+      callback();
+    })
+  }
+  
+  var testRemoteExists = spawn('ssh', [remote, 'test -d' + remoteDir])
+  testRemoteExists.on('exit', function (code) {
+    if (code === 0) { // remote exists
+      console.log('remote git repo already exists'.red);
+      return cleanup(callback);
+    }
+    
+    var scp = spawn('scp', ['-r', bareRepoDir, remote + ':' + remoteDir]);
+    util.pump(scp.stdout, process.stdout);
+    util.pump(scp.stderr, process.stderr);
 
-  scp.on('exit', function (code) {  
-    if (code !== 0) throw new Error('something has gone wrong with the scp');
+    scp.on('exit', function (code) {  
+      if (code !== 0) throw new Error('something has gone wrong with the scp');
+      cleanup(callback);
+    });
+  });
+}
+
+function addRemoteOort(remote, remoteDir, callback) {
+  console.log('adding remote `oort`');
+  var git = spawn('git', ['remote', 'add', 'oort', remote + ':' + remoteDir]);
+  util.pump(git.stdout, process.stdout);
+  util.pump(git.stderr, process.stderr);
+  
+  git.on('exit', function (code) {
+    if (code !== 0) {
+      // not critical, but let the user know
+      console.log('You already have a remote repository named `oort`.'.red)
+    }
+      
     callback();
   });
 }
@@ -78,11 +114,16 @@ function initializeClient() {
   var remote = config.user + '@' + config.server;
   var bareRepo = 'oort-bare-repository';
   
+  var repoName = path.basename(process.cwd());
+  
+  
   createBareRepository(bareRepo, function () {
     getRemoteConfig(remote, function (remoteConfig) { 
-      var remoteDir = path.join(remoteConfig.directory, 'repositories');
+      var remoteDir = path.join(remoteConfig.directory, '.repos', repoName + '.git');
       copyBareRepository(remote, bareRepo, remoteDir, function () {
-        console.log('things are looking good');
+        addRemoteOort(remote, remoteDir, function () {
+          console.log('things are looking good');
+        });
       });
     });
   });
