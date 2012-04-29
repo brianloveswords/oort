@@ -1,0 +1,35 @@
+{
+  "name": "oort",
+  "description": "sweet cloud action. don't use this yet",
+  "version": "0.0.0",
+  "homepage": "https://github.com/brianloveswords/oort",
+  "author": {
+    "name": "Brian J Brennan",
+    "email": "brian@nyhacker.org",
+    "url": "http://bjb.io"
+  },
+  "contributors": [ ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/brianloveswords/oort.git"
+  },
+  "bugs": {
+    "url": "https://github.com/brianloveswords/oort/issues"
+  },
+  "licenses": [
+    {
+      "type": "MIT",
+      "url": "https://github.com/brianloveswords/oort/blob/master/LICENSE-MIT"
+    }
+  ],
+  "engines": {
+    "node": "~0.6.14"
+  },
+  "dependencies" : {
+    "commander": "~0.6.0"
+  },
+  "devDependencies": { },
+  "noAnalyze": true,
+  "bundleDependencies": [ ],
+  "keywords": [ "cloud", "lol" ]
+}
