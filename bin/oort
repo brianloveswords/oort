@@ -11,6 +11,7 @@ program
   .version('0.0.0')
   .option('init', '[server] initialize!')
   .option('launch', '[client] launch that shizzzzz')
+  .option('push', '[client] launch that shizzzzz')
   .parse(process.argv);
 
 if (program.init) {
@@ -75,9 +76,10 @@ function copyBareRepository(remote, bareRepoDir, remoteDir, callback) {
     })
   }
   
-  var testRemoteExists = spawn('ssh', [remote, 'test -d' + remoteDir])
+  var testRemoteExists = spawn('ssh', [remote, 'test -d ' + remoteDir])
   testRemoteExists.on('exit', function (code) {
     if (code === 0) { // remote exists
+      console.dir(remoteDir);
       console.log('remote git repo already exists'.red);
       return cleanup(callback);
     }
@@ -111,12 +113,10 @@ function addRemoteOort(remote, remoteDir, callback) {
 
 function initializeClient() {
   var config = getConfig();
+  if (!config) throw new Error('could not get configuration');
   var remote = config.user + '@' + config.server;
   var bareRepo = 'oort-bare-repository';
-  
   var repoName = path.basename(process.cwd());
-  
-  
   createBareRepository(bareRepo, function () {
     getRemoteConfig(remote, function (remoteConfig) { 
       var remoteDir = path.join(remoteConfig.directory, '.repos', repoName + '.git');
@@ -129,6 +129,6 @@ function initializeClient() {
   });
 }
 
-if (program.launch) { 
+if (program.launch || program.push) { 
  initializeClient();
 }

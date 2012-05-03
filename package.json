@@ -25,13 +25,18 @@
   "engines": {
     "node": "~0.6.14"
   },
+  "scripts": {
+    "test" : "NODE_ENV=test vows --isolate --spec"
+  },
   "dependencies" : {
     "colors": "*",
     "commander": "~0.6.0",
     "mime" : "~1.2.5",
     "connect": "~2.2.1"
   },
-  "devDependencies": { },
+  "devDependencies": {
+    "vows": "~0.6.2"
+  },
   "noAnalyze": true,
   "bundleDependencies": [ ],
   "keywords": [ "cloud", "lol" ]
