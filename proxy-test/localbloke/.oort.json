@@ -1,0 +1,5 @@
+{
+  "server": "app.js",
+  "host": "localbloke",
+  "restart": true
+}

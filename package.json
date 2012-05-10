@@ -31,8 +31,9 @@
   "dependencies" : {
     "colors": "*",
     "commander": "~0.6.0",
-    "mime" : "~1.2.5",
-    "connect": "~2.2.1"
+    "connect": "~2.2.1",
+    "http-proxy": "~0.8.0",
+    "mime" : "~1.2.5"
   },
   "devDependencies": {
     "vows": "~0.6.2"
