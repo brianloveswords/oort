@@ -1,5 +1,11 @@
 {
-  "server": "app.js",
-  "host": "localbloke",
-  "restart": true
+  "connection": {
+    "user": "brian",
+    "server": "localhost"
+  },
+  "app": {
+    "server": "app.js",
+    "host": "localbloke",
+    "restart": true
+  }
 }

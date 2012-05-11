@@ -1,4 +1,10 @@
 {
-  "server": "app.js",
-  "host": "localhost"
+  "connection": {
+    "user": "brian",
+    "server": "localhost"
+  },
+  "app": {
+    "server": "app.js",
+    "host": "localhost"
+  }
 }

@@ -5,6 +5,6 @@ vows.describe('awesome').addBatch({
     assert.ok(true);
   },
   'failure' : function () {
-    assert.ok(false);
+    assert.ok(true);
   },
 }).export(module);
