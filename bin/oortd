@@ -19,6 +19,11 @@ var global = {
     endpoint = Object.keys(routes).reduce(function (found, route) {
       if (found) return;
       var re = RegExp(['^', route, '$'].join(''));
+
+      console.dir(host);
+      console.dir(re);
+      console.dir(re.exec(host));
+
       if(re.exec(host))
         return {host: host, port: routes[route].port }
     }, null);
@@ -44,9 +49,6 @@ var global = {
            '        \\::/____/                \\::/____/               \\::|   |                                       ',
            '                                                          \\:|   |                                         ',
            '                                                           \\|___|   v0.0.1                    '].join('\n');
-
-    console.dir(host);
-    console.dir(routes);
 
     if (!endpoint)
       return res.end(msg);
