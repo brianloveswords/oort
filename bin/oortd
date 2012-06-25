@@ -13,8 +13,16 @@ var global = {
   routes: {},
   proxy: httpProxy.createServer(function (req, res, proxy) {
     var host, endpoint, msg;
+    var routes = global.routes;
     host = req.headers['host'].split(':')[0];
-    endpoint = global.routes[host];
+
+    endpoint = Object.keys(global.routes).reduce(function (found, route) {
+      if (found) return;
+      var re = RegExp(['^', route, '$'].join(''));
+      if(re.exec(host))
+        return {host: host, port: routes[route].port }
+    }, null);
+
     msg = ['         _______                  _______                   _____                _____                     ',
            '        /::\\    \\                /::\\    \\                 /\\    \\              /\\    \\            ',
            '       /::::\\    \\              /::::\\    \\               /::\\    \\            /::\\    \\           ',
