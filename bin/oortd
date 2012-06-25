@@ -42,12 +42,10 @@ var global = {
            '                                                           \\|___|   v0.0.1                    '].join('\n');
 
     if (cached[host]) {
-      console.log('getting from cache');
       endpoint = cached[host];
     }
 
     if (!endpoint) {
-      console.log('discovering');
       endpoint = routes.reduce(function (found, route) {
         if (found) return found;
         if(route.host.exec(host))
