@@ -9,24 +9,15 @@ var app = require('cmdserver')(process.argv);
 function inspect(o) { return util.inspect(o, null, null, true) }
 
 var global = {
+  port: 0,
   lastConfig: null,
-  routes: {},
+  routes: [],
+  cached: {},
   proxy: httpProxy.createServer(function (req, res, proxy) {
-    var host, endpoint, msg;
-    var routes = global.routes;
+    var host, endpoint, msg, routes, buffer, cached;
+    cached = global.cached;
+    routes = global.routes;
     host = req.headers['host'].split(':')[0];
-
-    endpoint = Object.keys(routes).reduce(function (found, route) {
-      if (found) return;
-      var re = RegExp(['^', route, '$'].join(''));
-
-      console.dir(host);
-      console.dir(re);
-      console.dir(re.exec(host));
-
-      if(re.exec(host))
-        return {host: host, port: routes[route].port }
-    }, null);
 
     msg = ['         _______                  _______                   _____                _____                     ',
            '        /::\\    \\                /::\\    \\                 /\\    \\              /\\    \\            ',
@@ -50,10 +41,25 @@ var global = {
            '                                                          \\:|   |                                         ',
            '                                                           \\|___|   v0.0.1                    '].join('\n');
 
-    if (!endpoint)
-      return res.end(msg);
+    if (cached[host]) {
+      console.log('getting from cache');
+      endpoint = cached[host];
+    }
 
-    var buffer = httpProxy.buffer(req);
+    if (!endpoint) {
+      console.log('discovering');
+      endpoint = routes.reduce(function (found, route) {
+        if (found) return found;
+        if(route.host.exec(host))
+          return {host: host, port: route.port }
+      }, null);
+    }
+
+    if (!endpoint) return res.end(msg);
+
+    cached[host] = endpoint;
+
+    buffer = httpProxy.buffer(req);
     proxy.proxyRequest(req, res, {
       port: endpoint.port,
       host: endpoint.host,
@@ -87,8 +93,8 @@ app.command('list')
   .execute(listRoutes);
 function listRoutes(client) {
   var routes = global.routes;
-  Object.keys(routes).forEach(function (route) {
-    client.send('route:', route, '->', routes[route].port);
+  routes.forEach(function (route) {
+    client.send(inspect(route));
   });
 }
 
@@ -109,7 +115,7 @@ app.command('listen <port>')
   .describe('start the proxy server on <port>')
   .execute(startProxying)
 function startProxying(client, port) {
-  port = port || 9999;
+  port = port || global.port;
   var proxy = global.proxy;
   var address = proxy.address();
   if (address)
@@ -156,7 +162,6 @@ app.command('load <file>')
   .execute(loadFile)
 function loadFile(client, file) {
   var fullPath = pathutil.resolve(file);
-  console.log(fullPath);
   function error(err) { return client.send('error reading file:', inspect(err)); }
   fs.readFile(fullPath, 'utf8', function (err, data) {
     if (err) return error(err);
@@ -167,15 +172,23 @@ function loadFile(client, file) {
       return error(err);
     }
 
-    var hosts = Object.keys(config);
-    global.routes = hosts.reduce(function (accum, host) {
-      accum[host] = {
-        host: host,
-        port: config[host]
+    var servers = config.servers;
+    var hosts = Object.keys(servers);
+    global.routes = hosts.map(function (pattern) {
+      var regexp;
+      var serverPort = servers[pattern];
+      pattern = pattern.replace('*', '(.*)');
+      regexp = RegExp(['^', pattern, '$'].join(''));
+
+      return {
+        host: regexp,
+        port: serverPort
       }
-      return accum;
-    }, {});
+    });
+
     global.lastConfigPath = fullPath;
+    global.cached = {};
+    if (config.port) global.port = config.port;
     listRoutes(client);
   });
 }

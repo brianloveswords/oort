@@ -1,3 +1,9 @@
 {
-  "local.*": 3000
+  "port": 1024,
+  "servers": {
+    "local*": 3000,
+    "bjb.io": 1054,
+    "*.bjb.io": 1111,
+    "local.*": 3000
+  }
 }
