@@ -57,11 +57,9 @@ var global = {
 
     cached[host] = endpoint;
 
-    buffer = httpProxy.buffer(req);
     proxy.proxyRequest(req, res, {
       port: endpoint.port,
       host: endpoint.host,
-      buffer: buffer
     });
   })
 };
