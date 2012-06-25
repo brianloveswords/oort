@@ -1,0 +1,193 @@
+var fs = require('fs');
+var util = require('util');
+var httpProxy = require('http-proxy');
+var pathutil = require('path');
+var app = require('cmdserver')(process.argv);
+
+function inspect(o) { return util.inspect(o, null, null, true) }
+
+var global = {
+  lastConfig: null,
+  routes: {},
+  proxy: httpProxy.createServer(function (req, res, proxy) {
+    var host, endpoint, msg;
+    host = req.headers['host'].split(':')[0];
+    endpoint = global.routes[host];
+    msg = ['         _______                  _______                   _____                _____                     ',
+           '        /::\\    \\                /::\\    \\                 /\\    \\              /\\    \\            ',
+           '       /::::\\    \\              /::::\\    \\               /::\\    \\            /::\\    \\           ',
+           '      /::::::\\    \\            /::::::\\    \\             /::::\\    \\           \\:::\\    \\         ',
+           '     /::::::::\\    \\          /::::::::\\    \\           /::::::\\    \\           \\:::\\    \\        ',
+           '    /:::/~~\\:::\\    \\        /:::/~~\\:::\\    \\         /:::/\\:::\\    \\           \\:::\\    \\    ',
+           '   /:::/    \\:::\\    \\      /:::/    \\:::\\    \\       /:::/__\\:::\\    \\           \\:::\\    \\   ',
+           '  /:::/    / \\:::\\    \\    /:::/    / \\:::\\    \\     /::::\\   \\:::\\    \\          /::::\\    \\  ',
+           ' /:::/____/   \\:::\\____\\  /:::/____/   \\:::\\____\\   /::::::\\   \\:::\\    \\        /::::::\\    \\ ',
+           '|:::|    |     |:::|    ||:::|    |     |:::|    | /:::/\\:::\\   \\:::\\____\\      /:::/\\:::\\    \\    ',
+           '|:::|____|     |:::|    ||:::|____|     |:::|    |/:::/  \\:::\\   \\:::|    |    /:::/  \\:::\\____\\     ',
+           ' \\:::\\    \\   /:::/    /  \\:::\\    \\   /:::/    / \\::/   |::::\\  /:::|____|   /:::/    \\::/    /  ',
+           '  \\:::\\    \\ /:::/    /    \\:::\\    \\ /:::/    /   \\/____|:::::\\/:::/    /   /:::/    / \\/____/   ',
+           '   \\:::\\    /:::/    /      \\:::\\    /:::/    /          |:::::::::/    /   /:::/    /                 ',
+           '    \\:::\\__/:::/    /        \\:::\\__/:::/    /           |::|\\::::/    /   /:::/    /                 ',
+           '     \\::::::::/    /          \\::::::::/    /            |::| \\::/____/    \\::/    /                   ',
+           '      \\::::::/    /            \\::::::/    /             |::|  ~|           \\/____/                     ',
+           '       \\::::/    /              \\::::/    /              |::|   |                                        ',
+           '        \\::/____/                \\::/____/               \\::|   |                                       ',
+           '                                                          \\:|   |                                         ',
+           '                                                           \\|___|   v0.0.1                    '].join('\n');
+
+    if (!endpoint)
+      return res.end(msg);
+
+    var buffer = httpProxy.buffer(req);
+    proxy.proxyRequest(req, res, {
+      port: endpoint.port,
+      host: endpoint.host,
+      buffer: buffer
+    });
+  })
+};
+
+
+/**
+ * Add a route for a port.
+ */
+app.command('add <host> <dest>')
+  .describe('add a new route from host to destination')
+  .execute(addRoute);
+function addRoute(client, host, dest) {
+  if (!host) return client.send('missing host');
+  if (!dest) return client.send('missing dest');
+  global.routes[host] = {
+    host: host,
+    port: dest
+  }
+  client.send('new route for', host, 'added');
+}
+
+/**
+ * List all routes
+ */
+app.command('list')
+  .describe('list all routes')
+  .execute(listRoutes);
+function listRoutes(client) {
+  var routes = global.routes;
+  Object.keys(routes).forEach(function (route) {
+    client.send('route:', route, '->', routes[route].port);
+  });
+}
+
+/**
+ * show current working directory
+ */
+app.command('cwd')
+  .describe('show current working directory')
+  .execute(showCwd)
+function showCwd(client) {
+  client.send(process.cwd());
+}
+
+/**
+ * start the proxy server on a specific port
+ */
+app.command('listen <port>')
+  .describe('start the proxy server on <port>')
+  .execute(startProxying)
+function startProxying(client, port) {
+  port = port || 9999;
+  var proxy = global.proxy;
+  var address = proxy.address();
+  if (address)
+    return client.send('already listening on port', address.port);
+
+  function onListening() {
+    var address = proxy.address();
+    client.send('listening on port', address.port);
+    proxy.removeListener('error', onError);
+  }
+
+  function onError(err) {
+    client.send('there was an error starting the proxy server')
+    client.send(inspect(err));
+    proxy.removeListener('listening', onListening);
+  }
+
+  proxy.once('listening', onListening);
+  proxy.once('error', onError);
+  proxy.listen(port);
+}
+
+app.command('stop proxy')
+  .describe('stop the proxy server')
+  .execute(stopProxying)
+function stopProxying(client) {
+  var proxy = global.proxy;
+  try {
+    proxy.close();
+  } catch (err) {
+    client.send('there was an error:')
+    return client.send(inspect(err));
+  }
+  if (!proxy.address())
+    return client.send('proxy server stopped');
+  return client.send('problem stopping the proxy server');
+}
+
+/**
+ * load server config
+ */
+app.command('load <file>')
+  .describe('load a new server configuration')
+  .execute(loadFile)
+function loadFile(client, file) {
+  var fullPath = pathutil.resolve(file);
+  console.log(fullPath);
+  function error(err) { return client.send('error reading file:', inspect(err)); }
+  fs.readFile(fullPath, 'utf8', function (err, data) {
+    if (err) return error(err);
+    var config;
+    try {
+      config = JSON.parse(data);
+    } catch(err) {
+      return error(err);
+    }
+
+    var hosts = Object.keys(config);
+    global.routes = hosts.reduce(function (accum, host) {
+      accum[host] = {
+        host: host,
+        port: config[host]
+      }
+      return accum;
+    }, {});
+    global.lastConfigPath = fullPath;
+    listRoutes(client);
+  });
+}
+
+/**
+ * reload last known server configuration
+ */
+app.command('reload')
+  .describe('reload the last known server config')
+  .execute(reloadConfig)
+function reloadConfig(client) {
+  var last = global.lastConfigPath;
+  if (!last) return client.send('no known configuration');
+  loadFile(client, last);
+}
+
+/**
+ * quit proxying
+ */
+app.command('quit')
+  .describe('quit proxying')
+  .execute(quit)
+function quit(client) {
+  client.send('exiting...');
+  process.nextTick(function () {
+    process.exit(0);
+  });
+}
+
+app.begin();

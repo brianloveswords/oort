@@ -28,6 +28,10 @@
   "scripts": {
     "test" : "NODE_ENV=test vows --isolate --spec"
   },
+  "bin": {
+    "oort": "./bin/oort",
+    "oortd": "./bin/oortd"
+  },
   "dependencies" : {
     "colors": "*",
     "commander": "~0.6.0",
