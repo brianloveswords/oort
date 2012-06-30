@@ -15,10 +15,6 @@ var global = {
   cached: {},
   proxy: httpProxy.createServer(function (req, res, proxy) {
     var host, endpoint, msg, routes, buffer, cached;
-    cached = global.cached;
-    routes = global.routes;
-    host = req.headers['host'].split(':')[0];
-
     msg = ['         _______                  _______                   _____                _____                     ',
            '        /::\\    \\                /::\\    \\                 /\\    \\              /\\    \\            ',
            '       /::::\\    \\              /::::\\    \\               /::\\    \\            /::\\    \\           ',
@@ -39,11 +35,16 @@ var global = {
            '       \\::::/    /              \\::::/    /              |::|   |                                        ',
            '        \\::/____/                \\::/____/               \\::|   |                                       ',
            '                                                          \\:|   |                                         ',
-           '                                                           \\|___|   v0.0.1                    '].join('\n');
+           '                                                           \\|___|   v0.0.8                    '].join('\n');
 
-    if (cached[host]) {
+    if (!req.headers['host']) return res.end(msg);
+
+    cached = global.cached;
+    routes = global.routes;
+    host = req.headers['host'].split(':')[0];
+
+    if (cached[host])
       endpoint = cached[host];
-    }
 
     if (!endpoint) {
       endpoint = routes.reduce(function (found, route) {
